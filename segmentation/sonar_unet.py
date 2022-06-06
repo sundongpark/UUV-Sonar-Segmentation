@@ -30,13 +30,13 @@ CLASSES = ['background',
 
 ACTIVATION = 'softmax2d' # could be None for logits or 'softmax2d' for multiclass segmentation
 DEVICE = 'cuda'
-EPOCHS = 15
+EPOCHS = 30
 
 # create segmentation model with pretrained encoder
 model = smp.Unet(
     encoder_name=ENCODER,
     encoder_weights=ENCODER_WEIGHTS,
-    classes=len(CLASSES), # + 1, # background
+    classes=len(CLASSES),
     activation=ACTIVATION,
 )
 
@@ -44,8 +44,24 @@ model = smp.Unet(
 # IoU/Jaccard score - https://en.wikipedia.org/wiki/Jaccard_index
 loss = smp.utils.losses.DiceLoss() #smp.utils.losses.CrossEntropyLoss()
 metrics = [
-    smp.utils.metrics.IoU(threshold=0.5),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0])
 ]
+test_metrics = [
+    #smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0])
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[1,2,3,4,5,6,7,8,9,10,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,2,3,4,5,6,7,8,9,10,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,1,3,4,5,6,7,8,9,10,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,1,2,4,5,6,7,8,9,10,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,1,2,3,5,6,7,8,9,10,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,1,2,3,4,6,7,8,9,10,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,1,2,3,4,5,7,8,9,10,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,1,2,3,4,5,6,8,9,10,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,1,2,3,4,5,6,7,9,10,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,1,2,3,4,5,6,7,8,10,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,1,2,3,4,5,6,7,8,9,11]),
+    smp.utils.metrics.IoU(threshold=0.5, ignore_channels=[0,1,2,3,4,5,6,7,8,9,10])
+]
+
 optimizer = torch.optim.Adam([
     dict(params=model.parameters(), lr=0.0001)#, betas=(0.9, 0.999)),
     #dict(params=model.parameters(), lr=0.001, betas=(0.9, 0.999)),
@@ -289,14 +305,14 @@ if __name__ == '__main__':
             torch.save(model, './best_model.pth')
             print('Model saved!')
         if i == 5:
-            optimizer.param_groups[0]['lr'] = 0.00005
+            optimizer.param_groups[0]['lr'] = 0.0005
             print('Decrease decoder learning rate to 0.0001!')
         if i == 10:
-            optimizer.param_groups[0]['lr'] = 0.00001
+            optimizer.param_groups[0]['lr'] = 0.0001
             print('Decrease decoder learning rate to 0.00005!')
         '''
         if i == 15:
-            optimizer.param_groups[0]['lr'] = 0.000001
+            optimizer.param_groups[0]['lr'] = 0.00005
             print('Decrease decoder learning rate to 0.00001!')
         '''
 
@@ -337,19 +353,27 @@ if __name__ == '__main__':
     test_epoch = smp.utils.train.ValidEpoch(
         model=best_model,
         loss=loss,
-        metrics=metrics,
+        metrics=test_metrics,
         device=DEVICE,
     )
 
+    for i in range(len(CLASSES)):
+        test_epoch.metrics[i].__name__ = 'iou_class_'+str(i)
     logs = test_epoch.run(test_dataloader)
+    print("Per-Class IoU")
+    iou_sum = 0
+    for i in range(len(CLASSES)):
+        iou_sum += logs['iou_class_'+str(i)]
+        print(CLASSES[i]+':', logs['iou_class_'+str(i)])
+    print("mIoU:", iou_sum / len(CLASSES))
 
     # test dataset without transformations for image visualization
     test_dataset_vis = Dataset(
         x_test_dir, y_test_dir,
         classes=CLASSES,
     )
-    #CLASSES.append('background')
-    for i in range(10):
+
+    for i in range(5):
         n = np.random.choice(len(test_dataset))
 
         image_vis = test_dataset_vis[n][0].astype('uint8')
