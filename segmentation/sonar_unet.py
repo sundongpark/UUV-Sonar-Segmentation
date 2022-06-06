@@ -30,7 +30,7 @@ CLASSES = ['background',
 
 ACTIVATION = 'softmax2d' # could be None for logits or 'softmax2d' for multiclass segmentation
 DEVICE = 'cuda'
-EPOCHS = 30 #30
+EPOCHS = 15
 
 # create segmentation model with pretrained encoder
 model = smp.Unet(
@@ -42,20 +42,19 @@ model = smp.Unet(
 
 # Dice/F1 score - https://en.wikipedia.org/wiki/S%C3%B8rensen%E2%80%93Dice_coefficient
 # IoU/Jaccard score - https://en.wikipedia.org/wiki/Jaccard_index
-loss = smp.utils.losses.DiceLoss()#smp.utils.losses.CrossEntropyLoss() #smp.utils.losses.DiceLoss()
+loss = smp.utils.losses.DiceLoss() #smp.utils.losses.CrossEntropyLoss()
 metrics = [
     smp.utils.metrics.IoU(threshold=0.5),
 ]
 optimizer = torch.optim.Adam([
-    dict(params=model.parameters(), lr=0.0001),
+    dict(params=model.parameters(), lr=0.0001)#, betas=(0.9, 0.999)),
+    #dict(params=model.parameters(), lr=0.001, betas=(0.9, 0.999)),
 ])
-#optimizer = torch.optim.Adam([
-#    dict(params=model.parameters(), lr=0.001, betas=(0.9, 0.999)),
-#])
 
 # load repo with data if it is not exists
 if not os.path.exists(DATA_DIR):
     print('Data not exists')
+
 x_train_dir = os.path.join(DATA_DIR, 'train')
 y_train_dir = os.path.join(DATA_DIR, 'trainannot')
 
@@ -122,8 +121,9 @@ class Dataset(BaseDataset):
         mask = np.stack(masks, axis=-1).astype('float')
 
         # set background if mask is not binary
-        if mask.shape[-1] != 1:
-            mask[:,:,0] = 1 - mask.sum(axis=-1, keepdims=True).squeeze()
+        #if mask.shape[-1] != 1:
+            #mask[:,:,0] = 1 - mask.sum(axis=-1, keepdims=True).squeeze()
+
             #background = 1 - mask[:,:,1:].sum(axis=-1, keepdims=True)
             #mask = np.concatenate((mask, background), axis=-1)
 
@@ -219,7 +219,7 @@ preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
 train_dataset = Dataset(
     x_train_dir,
     y_train_dir,
-    augmentation=get_training_augmentation(),
+    #augmentation=get_training_augmentation(),
     preprocessing=get_preprocessing(preprocessing_fn),
     classes=CLASSES,
 )
@@ -227,7 +227,7 @@ train_dataset = Dataset(
 valid_dataset = Dataset(
     x_valid_dir,
     y_valid_dir,
-    augmentation=get_validation_augmentation(),
+    #augmentation=get_validation_augmentation(),
     preprocessing=get_preprocessing(preprocessing_fn),
     classes=CLASSES,
 )
@@ -277,8 +277,10 @@ if __name__ == '__main__':
 
         x_epoch_data.append(i)
         train_loss.append(train_logs['dice_loss'])
+        #train_loss.append(train_logs['cross_entropy_loss'])
         train_iou_score.append(train_logs['iou_score'])
         valid_loss.append(valid_logs['dice_loss'])
+        #valid_loss.append(train_logs['cross_entropy_loss'])
         valid_iou_score.append(valid_logs['iou_score'])
 
         # do something (save model, change lr, etc.)
@@ -286,16 +288,18 @@ if __name__ == '__main__':
             max_score = valid_logs['iou_score']
             torch.save(model, './best_model.pth')
             print('Model saved!')
-        if i == 25:
-            optimizer.param_groups[0]['lr'] = 1e-5
-            print('Decrease decoder learning rate to 1e-5!')
-        if i == 50:
-            optimizer.param_groups[0]['lr'] = 5e-6
-            print('Decrease decoder learning rate to 5e-6!')
+        if i == 5:
+            optimizer.param_groups[0]['lr'] = 0.00005
+            print('Decrease decoder learning rate to 0.0001!')
+        if i == 10:
+            optimizer.param_groups[0]['lr'] = 0.00001
+            print('Decrease decoder learning rate to 0.00005!')
+        '''
+        if i == 15:
+            optimizer.param_groups[0]['lr'] = 0.000001
+            print('Decrease decoder learning rate to 0.00001!')
+        '''
 
-        if i == 75:
-            optimizer.param_groups[0]['lr'] = 1e-6
-            print('Decrease decoder learning rate to 1e-6!')
 
     fig = plt.figure(figsize=(14, 5))
 
@@ -337,7 +341,7 @@ if __name__ == '__main__':
         device=DEVICE,
     )
 
-    # logs = test_epoch.run(test_dataloader)
+    logs = test_epoch.run(test_dataloader)
 
     # test dataset without transformations for image visualization
     test_dataset_vis = Dataset(
