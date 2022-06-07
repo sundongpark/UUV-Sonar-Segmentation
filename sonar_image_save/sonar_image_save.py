@@ -13,11 +13,11 @@ from geometry_msgs.msg import Pose
 CLASSES = {"background": 0, "bottle": 1, "can": 2, "chain": 3, "drink-carton": 4,
             "hook": 5, "propeller": 6, "shampoo-bottle": 7, "standing-bottle": 8,
             "tire": 9, "valve": 10, "wall": 11}
-MODELS = ['', '', '', '', '',
+MODELS = ['', '', 'Coke', '', '',
           '', '', '', '',
-          'car_wheel', '', '']
+          'car_wheel', '', 'cylinder_target']
 save_path = './sonar_image_save/sonar_imgs/'
-model = 'tire'
+model = 'drink-carton'
 # Initialize the ROS Node named 'opencv_example', allow multiple nodes to be run with this name
 rospy.init_node('sonar_image_save', anonymous=True)
 
@@ -37,15 +37,16 @@ def image_callback(img_msg):
     try:
         cv_image = bridge.imgmsg_to_cv2(img_msg, "passthrough")
         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
-    
+        '''
         center_x = cv_image.shape[1]//2
         center_y = cv_image.shape[0]//2
         cv_image = cv_image[:360, center_x-120:center_x+120]
+        '''
         cv_image = cv2.resize(cv_image, dsize=(320, 480))
-    
+
         #cv2.imshow('img', cv_image)
-        cv2.imwrite(save_path + 'sonar_image_' + str(i) + '.jpg', cv_image)
-        print(save_path + 'sonar_image_' + str(i) + '.jpg' + ' saved!')
+        cv2.imwrite(save_path + 'imgs/sonar_image_' + str(i) + '.png', cv_image)
+        print(save_path + 'imgs/sonar_image_' + str(i) + '.png' + ' saved!')
         i = i + 1
     except CvBridgeError:
           rospy.logerr("CvBridge Error: {0}".format(e))
@@ -59,18 +60,18 @@ def raw_callback(img_msg):
         cv_image = bridge.imgmsg_to_cv2(img_msg, "passthrough")
         cv_image = cv2.cvtColor(cv_image, cv2.COLOR_BGR2GRAY)
         #cv2.imshow('img', cv_image)
-
+        '''
         center_x = cv_image.shape[1]//2
         center_y = cv_image.shape[0]//2
         cv_image = cv_image[:360, center_x-120:center_x+120]
+        '''
         cv_image = cv2.resize(cv_image, dsize=(320, 480))
-
         contours, _ = cv2.findContours(cv_image, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         mask = np.zeros(cv_image.shape).astype(cv_image.dtype)
         for c in contours:
             cv2.fillPoly(mask, [c], [CLASSES[model]])
-        cv2.imwrite(save_path + 'sonar_image_mask_' + str(j) + '.jpg', mask)
-        print(save_path + 'sonar_image_mask_' + str(j) + '.jpg' + ' saved!')
+        cv2.imwrite(save_path + 'masks/sonar_image_' + str(j) + '.png', mask)
+        print(save_path + 'masks/sonar_image_' + str(j) + '.png' + ' saved!')
         j = j + 1
     except CvBridgeError:
           rospy.logerr("CvBridge Error: {0}".format(e))
@@ -101,16 +102,29 @@ def delete_model(model_name):
     delete_model_prox = rospy.ServiceProxy('gazebo/delete_model', DeleteModel)
     delete_model_prox(model_name)
 
-spawn_model('./sonar_image_save/models/blueview_p900_nps_multibeam_ray', -1, -1, 30, 0, 0.1494381, 0, 0.9887711) # pitch 0.3
+h = 1.5
+spawn_model('./sonar_image_save/models/blueview_p900_nps_multibeam_ray', -1, -1, 30, 0, 0.1305262, 0, 0.9914449) # pitch 15 degree
+#spawn_model('./sonar_image_save/models/blueview_p900_nps_multibeam_ray', -1, -1, 30, 0, 0.1494381, 0, 0.9887711) # pitch 17.18 degree
 #spawn_model('./sonar_image_save/models/blueview_p900_nps_multibeam_ray', -1, -1, 30, 0, 0.258819, 0, 0.9659258) # pitch 30 degree
 #spawn_model('./sonar_image_save/models/blueview_p900_nps_multibeam_ray', -1, -1, 30, 0, 0.3826834, 0, 0.9238795) # pitch 45 degree
 i = 0
 j = 0
-
+# tan(22.5) = 0.4142
+# tan(7.5) = 0.1317
+# tan(15) = 0.2679
 while True:
+    model = random.choice(['can', 'tire', 'wall'])
     # spawn model
-    spawn_model('./sonar_image_save/models/sand_heightmap', -15, 0, 28)
-    spawn_model('./sonar_image_save/models/' + MODELS[CLASSES[model]], random.random()*6, random.randrange(-2,2), random.random()*2+28, random.random()*3,random.random()*3,random.random()*3, random.random()*3)
+    spawn_model('./sonar_image_save/models/sand_heightmap', -15, 0, 30-h)
+    z = 1.45-(random.random()*0.01)
+    x = z/(0.23*random.random()+0.15)       #0.15~0.38
+    y = (x*0.23)*2*random.random() - (x*0.23)   # -0.23~0.3
+#    x = z/(0.2825*random.random()+0.1317)  # 0.1317~0.4142
+#    y = (x*0.2679)*2*random.random() - (x*0.2679)  # -0.2679~0.2679
+    if model == 'wall':
+        spawn_model('./sonar_image_save/models/' + MODELS[CLASSES[model]], x, y, 30-h+0.5)
+    else:
+        spawn_model('./sonar_image_save/models/' + MODELS[CLASSES[model]], x, y, 30-z, random.random(),random.random(),random.random(), random.random())
     
     rospy.sleep(1)  # delay
 
