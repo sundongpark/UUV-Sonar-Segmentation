@@ -1,4 +1,4 @@
-# UUV-Sonar-Object-Detection
+# UUV-Sonar-Segmentation
 
 ## Reference
 * [Forward-Looking Sonar Marine Debris Datasets](https://github.com/mvaldenegro/marine-debris-fls-datasets)
