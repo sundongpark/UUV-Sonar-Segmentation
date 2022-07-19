@@ -13,11 +13,11 @@ from geometry_msgs.msg import Pose
 CLASSES = {"background": 0, "bottle": 1, "can": 2, "chain": 3, "drink-carton": 4,
             "hook": 5, "propeller": 6, "shampoo-bottle": 7, "standing-bottle": 8,
             "tire": 9, "valve": 10, "wall": 11}
-MODELS = ['', '', 'Coke', '', '',
-          '', '', '', '',
-          'car_wheel', '', 'cylinder_target']
+MODELS = ['', '', 'Coke', '', 'drink_carton',
+          '', '', '', 'standing_bottle',
+          'car_wheel', 'valve', 'cylinder_target']
 save_path = './sonar_image_save/sonar_imgs/'
-model = 'drink-carton'
+
 # Initialize the ROS Node named 'opencv_example', allow multiple nodes to be run with this name
 rospy.init_node('sonar_image_save', anonymous=True)
 
@@ -113,7 +113,7 @@ j = 0
 # tan(7.5) = 0.1317
 # tan(15) = 0.2679
 while True:
-    model = random.choice(['can', 'tire', 'wall'])
+    model = random.choice(['can', 'drink-carton', 'tire', 'valve', 'wall'])
     # spawn model
     spawn_model('./sonar_image_save/models/sand_heightmap', -15, 0, 30-h)
     z = 1.45-(random.random()*0.01)
@@ -123,6 +123,8 @@ while True:
 #    y = (x*0.2679)*2*random.random() - (x*0.2679)  # -0.2679~0.2679
     if model == 'wall':
         spawn_model('./sonar_image_save/models/' + MODELS[CLASSES[model]], x, y, 30-h+0.5)
+    elif model == 'valve':
+        spawn_model('./sonar_image_save/models/' + MODELS[CLASSES[model]], x, y, 30-h+0.35)
     else:
         spawn_model('./sonar_image_save/models/' + MODELS[CLASSES[model]], x, y, 30-z, random.random(),random.random(),random.random(), random.random())
     
